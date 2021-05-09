@@ -48,6 +48,9 @@ let pin_url = baseUrl + "v2/appointment/sessions/public/calendarByPin?date="+dat
 let dist_url = baseUrl + "v2/appointment/sessions/public/calendarByDistrict?date="+dateStr+"&district_id="
 
 
+const cap = "capacity"
+
+
 function parse_response(answer, response) {  
 
   response.centers.forEach(function(center){
@@ -56,9 +59,11 @@ function parse_response(answer, response) {
         let date =session.date
         console.log(date + " " + session.available_capacity)
         if (date in answer) {
-          answer[date] = answer[date] + session.available_capacity
+          answer[date][cap] = answer[date][cap] + session.available_capacity
         } else {
-          answer[date] = session.available_capacity
+          answer[date] = {}
+          answer[date][cap] = session.available_capacity
+          answer[date]["center"] = center.name
         }
     }
     })
@@ -100,6 +105,8 @@ values.forEach((v) => {
 console.log(answer)
 
 var colorAvailable =  new Color("#ccffcc")
+let notifyBody = ""
+
 
 if (Object.keys(answer).length == 0 ) {  
   widget.addText("No data available for " + city.toUpperCase()).textColor = Color.red()
@@ -119,9 +126,10 @@ if (Object.keys(answer).length == 0 ) {
     st.useDefaultPadding()
     st.addText(key)
     st.addSpacer(undefined)
-    st.addText(answer[key].toString())
-    if(answer[key] > 0) {
+    st.addText(answer[key][cap].toString())
+    if(answer[key][cap] > 0) {
      st.backgroundColor = colorAvailable
+     notifyBody += answer[key][cap] + " slots available at " + answer[key]["center"] + "on date " + key
     }
   })    
   
@@ -137,7 +145,14 @@ footer.font = Font.footnote()
 footer.textColor = Color.yellow()
 
 
+if (notifyBody.length > 0) {  
+  let notify= new Notification()
+  notify.title = "Cowin slots" 
+  notify.body = notifyBody
+  notify.openUrl = "https://www.cowin.gov.in/home"
+  notify.schedule()
 
+}
 
 if(config.runsInApp) {    
   widget.presentMedium()
