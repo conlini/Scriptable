@@ -1,5 +1,12 @@
+// NOTE: change this to 45 if you need to look up for 45+
+const min_age_limit = 18
+
+
 let city = undefined
-console.log("getting city")
+
+
+
+
 if(config.runsInWidget) {    
   // if run in widget, get city option from widget
   city = args.widgetParameter
@@ -19,15 +26,13 @@ if(config.runsInWidget) {
 }
 
 
-// modify these to change zipcodes/districtIds of interest
+// modify these to change zipcodes of interest
 // keep the city keys in lowercase
 let config_data = {
    "ambala" : {  
-     "district_ids" : [193],
-     "pincodes" : [134003, 134007]
+     "pincodes" : [134003, 134007, 133001]
    }, 
    "bangalore" : {
-     "district_ids" : [294,265],
      "pincodes" :[560043]
   }
 }
@@ -44,18 +49,24 @@ let baseUrl = "https://cdn-api.co-vin.in/api/"
 
 let pin_url = baseUrl + "v2/appointment/sessions/public/calendarByPin?date="+dateStr+"&pincode="
 
-
-let dist_url = baseUrl + "v2/appointment/sessions/public/calendarByDistrict?date="+dateStr+"&district_id="
-
-
 const cap = "capacity"
 
 
+
+
+/* parses the response from cowin and maps out data as 
+ {
+   "<date>" : {
+      "capacity" : <number>, // total available capacity accross the city
+    }
+}
+  
+*/
 function parse_response(answer, response) {  
 
   response.centers.forEach(function(center){
     center.sessions.forEach(function(session){
-      if (session.min_age_limit == 18) {
+      if (session.min_age_limit == min_age_limit) {
         let date =session.date
         console.log(date + " " + session.available_capacity)
         if (date in answer) {
@@ -63,7 +74,7 @@ function parse_response(answer, response) {
         } else {
           answer[date] = {}
           answer[date][cap] = session.available_capacity
-          answer[date]["center"] = center.name
+//          answer[date]["center"] = center.name
         }
     }
     })
@@ -78,6 +89,7 @@ let widget = new ListWidget()
 
 let city_data = config_data[city.toLowerCase()]
 
+// async fetch of slots from cowin 
 async function fetch() {  
   let promises = []  
   if ("pincodes" in city_data) {  
@@ -108,6 +120,8 @@ var colorAvailable =  new Color("#ccffcc")
 let notifyBody = ""
 
 
+
+// creates the presentation widget
 if (Object.keys(answer).length == 0 ) {  
   widget.addText("No data available for " + city.toUpperCase()).textColor = Color.red()
   
@@ -127,9 +141,10 @@ if (Object.keys(answer).length == 0 ) {
     st.addText(key)
     st.addSpacer(undefined)
     st.addText(answer[key][cap].toString())
+    // if the capacity is greater than 0 highlight the row and create a notification
     if(answer[key][cap] > 0) {
      st.backgroundColor = colorAvailable
-     notifyBody += answer[key][cap] + " slots available at " + answer[key]["center"] + "on date " + key
+     notifyBody += answer[key][cap] + " slots available on " + key
     }
   })    
   
@@ -145,9 +160,11 @@ footer.font = Font.footnote()
 footer.textColor = Color.yellow()
 
 
+// if we have something to notify, create and schedule a notificaiton 
 if (notifyBody.length > 0) {  
   let notify= new Notification()
-  notify.title = "Cowin slots" 
+  notify.title = "Cowin slots"
+  notifyBody += "\n\nAs of " + df2.string(now)
   notify.body = notifyBody
   notify.openUrl = "https://www.cowin.gov.in/home"
   notify.schedule()
